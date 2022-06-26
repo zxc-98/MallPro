@@ -25,6 +25,15 @@ public class UserDaoTest {
     private ProductMapper productMapper;
 
     @Test
+    public void testFirstLevel(){
+        List<CategoryVO> categoryVOS = categoryMapper.selectFirstLevelCategories();
+        for (CategoryVO categoryVO : categoryVOS) {
+            System.out.println(categoryVO);
+        }
+    }
+
+
+    @Test
     public void testProduct(){
         List<ProductVO> productVOS = productMapper.selectRecommendProducts();
         for (ProductVO productVO : productVOS) {

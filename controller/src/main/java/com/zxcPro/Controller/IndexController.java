@@ -46,4 +46,10 @@ public class IndexController {
         return productService.listRecommendProducts();
     }
 
+    @GetMapping("/category-recommends")
+    @ApiOperation("分类推荐接口")
+    public ResultVO listRecommendProductsByCategory(){
+        return categoryService.listFirstLevelCategories();
+    }
+
 }

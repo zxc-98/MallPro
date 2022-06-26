@@ -11,4 +11,10 @@ import java.util.List;
 public interface ProductMapper extends GeneralDAO<Product> {
 
     List<ProductVO> selectRecommendProducts();
+
+    /**
+     * 查询一级类别下销量最高的商品
+     * @return
+     */
+    List<ProductVO> selectTop6ByCategory(int cid);
 }
