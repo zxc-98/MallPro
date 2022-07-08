@@ -2,6 +2,7 @@ package com.zxcPro.dao;
 
 import com.zxcPro.ControllerApplication;
 import com.zxcPro.entity.CategoryVO;
+import com.zxcPro.entity.ProductCommentsVO;
 import com.zxcPro.entity.ProductVO;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -24,11 +25,13 @@ public class UserDaoTest {
     @Autowired
     private ProductMapper productMapper;
 
+    @Autowired
+    private ProductCommentsMapper productCommentsMapper;
     @Test
     public void testFirstLevel(){
-        List<CategoryVO> categoryVOS = categoryMapper.selectFirstLevelCategories();
-        for (CategoryVO categoryVO : categoryVOS) {
-            System.out.println(categoryVO);
+        List<ProductCommentsVO> productCommentsVOS = productCommentsMapper.selectCommentsByProductId("3", 0, 2);
+        for (ProductCommentsVO productCommentsVO : productCommentsVOS) {
+            System.out.println(productCommentsVO);
         }
     }
 
