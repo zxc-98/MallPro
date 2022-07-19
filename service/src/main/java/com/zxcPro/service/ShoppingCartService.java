@@ -6,4 +6,10 @@ import com.zxcPro.vo.ResultVO;
 public interface ShoppingCartService {
 
     ResultVO addShoppingCart(ShoppingCart cart);
+
+    ResultVO listShoppingCartByUserId(int UserId);
+
+    ResultVO updateCartNum(int cartNum, int cartId);
+
+    ResultVO selectShoppingCartByCids(String cids);
 }

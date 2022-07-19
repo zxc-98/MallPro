@@ -4,6 +4,7 @@ import com.zxcPro.ControllerApplication;
 import com.zxcPro.entity.CategoryVO;
 import com.zxcPro.entity.ProductCommentsVO;
 import com.zxcPro.entity.ProductVO;
+import com.zxcPro.entity.ShoppingCartVO;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,20 @@ public class UserDaoTest {
 
     @Autowired
     private ProductCommentsMapper productCommentsMapper;
+
+    @Autowired
+    private ShoppingCartMapper shoppingCartMapper;
+
+    @Test
+    public void testSelectShoppingCart(){
+        List<ShoppingCartVO> shoppingCartVOS = shoppingCartMapper.selectShoppingCartByUserId(6);
+        for (ShoppingCartVO shoppingCartVO : shoppingCartVOS) {
+            System.out.println(shoppingCartVO);
+        }
+    }
+
+
+
     @Test
     public void testFirstLevel(){
         List<ProductCommentsVO> productCommentsVOS = productCommentsMapper.selectCommentsByProductId("3", 0, 2);

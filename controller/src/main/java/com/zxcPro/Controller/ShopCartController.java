@@ -13,6 +13,7 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
+import io.swagger.models.auth.In;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -52,8 +53,32 @@ public class ShopCartController {
     @Autowired
     private ShoppingCartService shoppingCartService;
 
-    @PostMapping("/list")
-    public ResultVO addShoppingCart(@RequestBody ShoppingCart cart, @RequestHeader("token")String token) {
-        return shoppingCartService.addShoppingCart(cart);
+    @PostMapping("/add")
+    public ResultVO addShoppingCart(@RequestBody ShoppingCart cart,@RequestHeader("token")String token){
+        ResultVO resultVO = shoppingCartService.addShoppingCart(cart);
+        return resultVO;
     }
+
+    @GetMapping("/list")
+    @ApiImplicitParam(dataType = "int",name = "userId", value = "用户ID",required = true)
+    public ResultVO list(Integer userId,@RequestHeader("token")String token){
+        ResultVO resultVO = shoppingCartService.listShoppingCartByUserId(userId);
+        return resultVO;
+    }
+
+    @PutMapping("/update/{cid}/{cnum}")
+    public ResultVO updateNum(@PathVariable("cid") Integer cartId,
+                              @PathVariable("cnum") Integer cartNum,
+                              @RequestHeader("token") String token){
+        ResultVO resultVO = shoppingCartService.updateCartNum(cartId, cartNum);
+        return resultVO;
+    }
+
+    @GetMapping("/listbycids")
+    @ApiImplicitParam(dataType = "String",name = "cids", value = "选定的购物车记录",required = true)
+    public ResultVO listByCids(String cids,@RequestHeader("token")String token){
+        ResultVO resultVO = shoppingCartService.selectShoppingCartByCids(cids);
+        return resultVO;
+    }
+
 }

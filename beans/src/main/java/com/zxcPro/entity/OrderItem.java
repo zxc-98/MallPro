@@ -1,9 +1,15 @@
 package com.zxcPro.entity;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
 import java.util.Date;
 import javax.persistence.*;
 
+@AllArgsConstructor
+@NoArgsConstructor
 @Table(name = "order_item")
 public class OrderItem {
     /**
