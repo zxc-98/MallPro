@@ -7,6 +7,9 @@ import com.zxcPro.service.OrderService;
 import com.zxcPro.vo.ResStatus;
 import com.zxcPro.vo.ResultVO;
 import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiImplicitParams;
+import io.swagger.annotations.ApiOperation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -58,6 +61,26 @@ public class OrderController {
             e.printStackTrace();
         }
 
+        return resultVO;
+    }
+
+    @GetMapping("/status/{oid}")
+    public ResultVO getOrderStatus(@PathVariable("oid") String orderId,@RequestHeader("token")String token){
+        ResultVO resultVO = orderService.getOrderById(orderId);
+        return resultVO;
+    }
+
+    @GetMapping("/list")
+    @ApiOperation("订单查询接口")
+    @ApiImplicitParams({
+            @ApiImplicitParam(dataType = "string",name = "userId", value = "用户ID",required = true),
+            @ApiImplicitParam(dataType = "string",name = "status", value = "订单状态",required = false),
+            @ApiImplicitParam(dataType = "int",name = "pageNum", value = "页码",required = true),
+            @ApiImplicitParam(dataType = "int",name = "limit", value = "每页条数",required = true)
+    })
+    public ResultVO list(@RequestHeader("token")String token,
+                         String userId,String status,int pageNum,int limit){
+        ResultVO resultVO = orderService.listOrders(userId, status, pageNum, limit);
         return resultVO;
     }
 

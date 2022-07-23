@@ -2,6 +2,7 @@ package com.zxcPro.Controller;
 
 import com.github.wxpay.sdk.WXPayUtil;
 import com.zxcPro.service.OrderService;
+import com.zxcPro.webSocket.WebSocketServer;
 import io.swagger.annotations.Api;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -47,6 +48,8 @@ public class payController {
         if (!map.isEmpty() && "success".equalsIgnoreCase(map.get("result_code"))) {
             String orderId = map.get("out_trade_no");
             int i = orderService.updateOrderStatus(orderId, "2");
+
+            WebSocketServer.sendMsg(orderId, "1");
             if (i > 0) {
                 //响应支付平台
                 HashMap<String,String> resp = new HashMap<>();

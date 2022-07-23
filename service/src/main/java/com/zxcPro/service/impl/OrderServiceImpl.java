@@ -7,8 +7,13 @@ import com.zxcPro.dao.ProductSkuMapper;
 import com.zxcPro.dao.ShoppingCartMapper;
 import com.zxcPro.entity.*;
 import com.zxcPro.service.OrderService;
+import com.zxcPro.util.PageHelper;
+import com.zxcPro.vo.ResStatus;
+import com.zxcPro.vo.ResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 import tk.mybatis.mapper.entity.Example;
 
 import java.math.BigDecimal;
@@ -103,5 +108,56 @@ public class OrderServiceImpl implements OrderService {
         orders.setStatus(status);
         int i = ordersMapper.updateByPrimaryKeySelective(orders);
         return i;
+    }
+
+    @Override
+    public ResultVO getOrderById(String orderId) {
+        Orders order = ordersMapper.selectByPrimaryKey(orderId);
+        return new ResultVO(ResStatus.OK,"sucesss",order.getStatus());
+    }
+
+    @Override
+    public ResultVO listOrders(String userId, String status, int pageNum, int limit) {
+            //1.分页查询
+            int start = (pageNum-1)*limit;
+            List<OrdersVO> ordersVOS = ordersMapper.selectOrders(userId, status, start, limit);
+
+            //2.查询总记录数
+            Example example = new Example(Orders.class);
+            Example.Criteria criteria = example.createCriteria();
+            criteria.andLike("userId",userId);
+            if(status != null && !"".equals(status)){
+                criteria.andLike("status",status);
+            }
+            int count = ordersMapper.selectCountByExample(example);
+
+            //3.计算总页数
+            int pageCount = count%limit==0?count/limit:count/limit+1;
+
+            //4.封装数据
+            PageHelper<OrdersVO> pageHelper = new PageHelper<>(count, pageCount, ordersVOS);;
+            return new ResultVO(ResStatus.OK,"success",pageHelper);
+        }
+
+    @Override
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public void closeOrder(String orderId) {
+        //修改当前订单 status=6 close_type=1超时未支付
+        //还原库存 先根据当前订单编号 查询商品快照（skuid buy_count） 修改product_sku
+        Orders cancelOrder = new Orders();
+        cancelOrder.setOrderId(orderId);
+        cancelOrder.setStatus("6");//订单关闭
+        cancelOrder.setCloseType(1);//超时未支付
+        ordersMapper.updateByPrimaryKeySelective(cancelOrder);
+
+
+        Example exampleItem = new Example(OrderItem.class);
+        Example.Criteria itemCriteria = exampleItem.createCriteria();
+        itemCriteria.andEqualTo("orderId", orderId);
+        orderItemMapper.selectByExample(exampleItem).forEach(item ->{
+            ProductSku productSku = productSkuMapper.selectByPrimaryKey(item.getSkuId());
+            productSku.setStock(productSku.getStock() + item.getBuyCounts());
+            productSkuMapper.updateByPrimaryKey(productSku);
+        });
     }
 }

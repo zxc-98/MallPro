@@ -1,17 +1,16 @@
 package com.zxcPro.dao;
 
 import com.zxcPro.ControllerApplication;
-import com.zxcPro.entity.CategoryVO;
-import com.zxcPro.entity.ProductCommentsVO;
-import com.zxcPro.entity.ProductVO;
-import com.zxcPro.entity.ShoppingCartVO;
+import com.zxcPro.entity.*;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
+import tk.mybatis.mapper.entity.Example;
 
+import java.util.Date;
 import java.util.List;
 
 
@@ -31,6 +30,29 @@ public class UserDaoTest {
 
     @Autowired
     private ShoppingCartMapper shoppingCartMapper;
+
+    @Autowired
+    private OrdersMapper ordersMapper;
+
+
+
+    @Test
+    public void testOrderTimeoutCheck(){
+        Example example = new Example(Orders.class);
+        Example.Criteria criteria = example.createCriteria();
+        criteria.andEqualTo("status" , 1);
+
+        Date time = new Date(System.currentTimeMillis() - 30*60*1000);
+        criteria.andLessThan("createTime", time);
+
+        List<Orders> orders = ordersMapper.selectByExample(example);
+        for (Orders order : orders) {
+            System.out.println(order);
+        }
+    }
+
+
+
 
     @Test
     public void testSelectShoppingCart(){

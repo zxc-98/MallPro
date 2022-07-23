@@ -40,7 +40,7 @@ public class UserController {
             @ApiImplicitParam(dataType = "string", name = "username", value = "用户注册用户名", required = true),
             @ApiImplicitParam(dataType = "string", name = "password", value = "用户注册密码", required = true)
     })
-    @PostMapping("/register")
+    @PostMapping("/regist")
     public ResultVO register(@RequestBody Users user) {
         return userService.userRegister(user.getUsername(), user.getPassword());
     }
