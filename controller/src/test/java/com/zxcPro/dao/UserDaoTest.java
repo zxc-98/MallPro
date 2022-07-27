@@ -6,6 +6,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
 import tk.mybatis.mapper.entity.Example;
@@ -34,7 +35,14 @@ public class UserDaoTest {
     @Autowired
     private OrdersMapper ordersMapper;
 
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
+    @Test
+    public void testRedis(){
+        String categories = stringRedisTemplate.boundValueOps("categories").get();
+        stringRedisTemplate.delete("categories");
+    }
 
     @Test
     public void testOrderTimeoutCheck(){

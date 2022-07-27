@@ -1,5 +1,7 @@
 package com.zxcPro.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zxcPro.dao.UsersMapper;
 import com.zxcPro.entity.Users;
 import com.zxcPro.service.UserService;
@@ -10,6 +12,8 @@ import com.zxcPro.vo.ResultVO;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tk.mybatis.mapper.entity.Example;
@@ -19,11 +23,16 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class UserServiceImpl implements UserService {
     @Resource
     private UsersMapper usersMapper;
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public ResultVO checkLogin(String name, String pwd) {
@@ -54,6 +63,12 @@ public class UserServiceImpl implements UserService {
                         .setExpiration(new Date(System.currentTimeMillis() + 24*60*60* 1000)) //设置token的过期时间
                         .signWith(SignatureAlgorithm.HS256, "zxc666") //设置加密方式和加密密码
                         .compact();
+                //用户登录成功后，以token为key，user为value存入redis中
+                try {
+                    stringRedisTemplate.boundValueOps(token).set(objectMapper.writeValueAsString(user), 30, TimeUnit.MINUTES);
+                } catch (JsonProcessingException e) {
+                    e.printStackTrace();
+                }
 
                 return new ResultVO(ResStatus.OK, token, user);
             }
