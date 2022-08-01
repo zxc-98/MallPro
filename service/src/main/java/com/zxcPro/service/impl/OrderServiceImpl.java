@@ -1,6 +1,5 @@
 package com.zxcPro.service.impl;
 
-import com.sun.org.apache.xpath.internal.operations.Or;
 import com.zxcPro.dao.OrderItemMapper;
 import com.zxcPro.dao.OrdersMapper;
 import com.zxcPro.dao.ProductSkuMapper;
@@ -10,7 +9,13 @@ import com.zxcPro.service.OrderService;
 import com.zxcPro.util.PageHelper;
 import com.zxcPro.vo.ResStatus;
 import com.zxcPro.vo.ResultVO;
+//import io.lettuce.core.RedisClient;
+//import org.redisson.api.RLock;
+//import org.redisson.api.RedissonClient;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +23,8 @@ import tk.mybatis.mapper.entity.Example;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class OrderServiceImpl implements OrderService {
@@ -33,72 +40,128 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private ProductSkuMapper productSkuMapper;
 
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private RedissonClient redissonClient;
+
     @Override
+    @Transactional
     public Map<String, String> addOrder(String cids, Orders order) {
-        String[] split = cids.split(",");
-        List<Integer> list = new ArrayList<>();//存入传入的cid集合
-        for (String s : split) {
-            int cid = Integer.parseInt(s);
-            list.add(cid);
-        }
-
-        List<ShoppingCartVO> shoppingCarts = shoppingCartMapper.selectShoppingCartByCid(list);
-        boolean f = true;//库存不足警告
-        StringBuilder itemsString = new StringBuilder();//订单中订单项的名称
-
-        for (ShoppingCartVO shoppingCart : shoppingCarts) {
-            if (shoppingCart.getSkuStock() < Integer.parseInt(shoppingCart.getCartNum())) {
-                f = false;
-            }
-            itemsString.append(shoppingCart.getProductName()).append(",");
-        }
-
-        if (f && shoppingCarts.size() > 0) {
-            order.setUntitled(itemsString.toString());//设置产品名称
-            order.setCreateTime(new Date());
-            order.setStatus("1");
-
-            String orderId = UUID.randomUUID().toString().replace("-", "");//将-号去除
-            order.setOrderId(orderId);
-            ordersMapper.insert(order);
-
-            for (ShoppingCartVO sc : shoppingCarts) {
-                // 订单快照
-                int buyCounts = Integer.parseInt(sc.getCartNum());
-                String itemId = String.valueOf(System.currentTimeMillis() + new Random().nextInt(89999) + 10000);
-
-                OrderItem orderItem = new OrderItem(itemId, orderId, sc.getProductId(),sc.getProductName(),
-                        sc.getProductImg(),sc.getSkuId(), sc.getSkuName(), new BigDecimal(sc.getSellPrice()),
-                        buyCounts,new BigDecimal(sc.getSellPrice() * buyCounts), new Date(), new Date(), 0);
-
-                orderItemMapper.insert(orderItem);
-
-                //扣减库存，更新
-                int curStock = sc.getSkuStock() - Integer.parseInt(sc.getCartNum());
-                String skuId = sc.getSkuId();
-                ProductSku productSku = new ProductSku();
-                productSku.setStock(curStock);
-                productSku.setSkuId(skuId);
-
-                productSkuMapper.updateByPrimaryKeySelective(productSku);
+        synchronized (this){ //解决单体项目订单超卖问题
+            String[] split = cids.split(",");
+            List<Integer> list = new ArrayList<>();//存入传入的cid集合
+            for (String s : split) {
+                int cid = Integer.parseInt(s);
+                list.add(cid);
             }
 
-            //将购物车记录删除
-            for (Integer l : list) {
-                shoppingCartMapper.deleteByPrimaryKey(l);
+            List<ShoppingCartVO> shoppingCarts = shoppingCartMapper.selectShoppingCartByCid(list);
+
+            //购物车记录中获取商品id
+            List<String> ids = new ArrayList<>();//加分布式锁的商品id 加锁成功，将锁记录下来
+            AtomicBoolean isLock = new AtomicBoolean(true);
+            Map<String, RLock> locks = new HashMap<>();
+
+
+//            Map<String, String> dic = new HashMap<>();
+            for (ShoppingCartVO shoppingCart : shoppingCarts) {
+                String skuId = shoppingCart.getSkuId();
+                //使用框架加锁
+                //1. 构建锁
+                RLock lock = redissonClient.getLock(skuId);
+                boolean isClock = lock.tryLock();
+                if (!isClock) {
+                    isLock.set(false);
+                    break;
+                }else {
+                    ids.add(skuId);
+                    locks.put(skuId, lock);//将锁记录下来
+                }
+
+//                String value = UUID.randomUUID().toString();
+//                Boolean isClock = stringRedisTemplate.boundValueOps(skuId).setIfAbsent(value, 10, TimeUnit.SECONDS);
+//                if (isClock) {
+//                    ids.add(skuId);
+//                    dic.put(skuId, value);
+//                }
+//
+//                if (!isClock) {
+//                    isLock.set(false);
+//                    break;
+//                }
             }
 
-            Map<String, String> map = new HashMap<>();
-            map.put("orderId", orderId);
-            map.put("productNames", itemsString.toString());
 
-            return map;
-        }
-        else {
-            //库存不足
-            return null;
-        }
 
+            Map<String, String> map = null;
+            if (isLock.get()) {
+                try{
+                    // 加锁之前还可能被修改，所以需要再查一次
+                    shoppingCarts = shoppingCartMapper.selectShoppingCartByCid(list);
+                    boolean f = true;//库存不足警告
+                    StringBuilder itemsString = new StringBuilder();//订单中订单项的名称
+
+                    for (ShoppingCartVO shoppingCart : shoppingCarts) {
+                        if (shoppingCart.getSkuStock() < Integer.parseInt(shoppingCart.getCartNum())) {
+                            f = false;
+                        }
+                        itemsString.append(shoppingCart.getProductName()).append(",");
+                    }
+
+                    if (f && shoppingCarts.size() > 0) {
+                        order.setUntitled(itemsString.toString());//设置产品名称
+                        order.setCreateTime(new Date());
+                        order.setStatus("1");
+
+                        String orderId = UUID.randomUUID().toString().replace("-", "");//将-号去除
+                        order.setOrderId(orderId);
+                        ordersMapper.insert(order);
+
+                        for (ShoppingCartVO sc : shoppingCarts) {
+                            // 订单快照
+                            int buyCounts = Integer.parseInt(sc.getCartNum());
+                            String itemId = String.valueOf(System.currentTimeMillis() + new Random().nextInt(89999) + 10000);
+
+                            OrderItem orderItem = new OrderItem(itemId, orderId, sc.getProductId(),sc.getProductName(),
+                                    sc.getProductImg(),sc.getSkuId(), sc.getSkuName(), new BigDecimal(sc.getSellPrice()),
+                                    buyCounts,new BigDecimal(sc.getSellPrice() * buyCounts), new Date(), new Date(), 0);
+
+                            orderItemMapper.insert(orderItem);
+
+                            //扣减库存，更新
+                            int curStock = sc.getSkuStock() - Integer.parseInt(sc.getCartNum());
+                            String skuId = sc.getSkuId();
+                            ProductSku productSku = new ProductSku();
+                            productSku.setStock(curStock);
+                            productSku.setSkuId(skuId);
+
+                            productSkuMapper.updateByPrimaryKeySelective(productSku);
+                        }
+
+                        //将购物车记录删除
+                        for (Integer l : list) {
+                            shoppingCartMapper.deleteByPrimaryKey(l);
+                        }
+
+                        map = new HashMap<>();
+                        map.put("orderId", orderId);
+                        map.put("productNames", itemsString.toString());
+                    }
+                }
+                catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+
+            // 删除分布式锁
+            for (String id : ids) {
+//              stringRedisTemplate.delete(id);
+                locks.get(id).unlock();
+            }
+            return map;//分布式锁加锁失败
+        }
     }
 
     @Override
