@@ -1,0 +1,18 @@
+server:
+  port: 8001
+spring:
+  application:
+    name: api-user-login
+  redis:
+    port: 6379
+    host: 116.57.119.28
+    database: 9
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://zxc:123@localhost:8761/eureka
+
+feign:
+  hystrix:
+    enabled: true

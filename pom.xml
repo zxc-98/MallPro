@@ -21,6 +21,8 @@
         <module>mapper</module>
         <module>service</module>
         <module>controller</module>
+
+        <module>api-user-login</module>
     </modules>
 
     <packaging>pom</packaging>
